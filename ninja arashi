@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Add PWA Mobile Capabilities -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0d1a12">
+    <!-- Embedded App Manifest -->
+    <link rel="manifest" href='data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Ninja%20Shadow%3A%20Arashi%20Legacy%22%2C%22short_name%22%3A%22NinjaShadow%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22landscape%22%2C%22background_color%22%3A%22%230d1a12%22%2C%22theme_color%22%3A%22%230d1a12%22%2C%22start_url%22%3A%22index.html%22%7D'>
+    <title>Ninja Shadow: Arashi Legacy - Master Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Shojumaru&family=Cinzel:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0d1a12;
+            overflow: hidden;
+            touch-action: none;
+            font-family: 'Cinzel', serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #0d1a12;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* HUD */
+        #hud {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            color: #fff;
+            text-shadow: 0 2px 4px #000;
+        }
+
+        .hud-left { display: flex; flex-direction: column; gap: 8px; }
+
+        .life-bar-wrap {
+            width: 220px; height: 20px;
+            background: rgba(0,0,0,0.6);
+            border: 2px solid #5a7a5a;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        #life-fill {
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, #c0392b, #e74c3c);
+            transition: width 0.2s;
+        }
+
+        .currency-wrap {
+            display: flex; align-items: center; gap: 15px;
+            font-family: 'Shojumaru', cursive; font-size: 18px; color: #f1c40f;
+        }
+        .currency-item { display: flex; align-items: center; gap: 5px; }
+
+        #score-display {
+            font-family: 'Shojumaru', cursive;
+            font-size: 24px; color: #fff;
+        }
+
+        /* CONTROLS */
+        #controls {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        .move-cluster {
+            position: absolute; bottom: 30px; left: 30px;
+            display: flex; gap: 25px; pointer-events: auto;
+        }
+
+        .arrow-btn {
+            width: 75px; height: 75px;
+            background: rgba(0,0,0,0.3);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            backdrop-filter: blur(4px);
+            transition: transform 0.1s;
+        }
+        .arrow-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
+        .arrow-icon { font-size: 30px; color: #fff; pointer-events: none; }
+
+        .action-cluster {
+            position: absolute; bottom: 30px; right: 40px;
+            width: 240px; height: 240px;
+            pointer-events: auto;
+        }
+
+        .circle-btn {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(50,50,50,0.6) 0%, rgba(0,0,0,0.8) 100%);
+            border: 2px solid rgba(200,200,200,0.3);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: #fff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
+            overflow: hidden;
+        }
+        .circle-btn:active { transform: scale(0.92); border-color: #fff; }
+
+        #btn-jump { width: 85px; height: 85px; bottom: 0; right: 0; }
+        #btn-attack { 
+            width: 95px; height: 95px; bottom: 40px; right: 100px;
+            background: radial-gradient(circle, rgba(150,40,40,0.5) 0%, rgba(0,0,0,0.8) 100%);
+            border-color: rgba(231,76,60,0.6);
+        }
+        #btn-dash { width: 65px; height: 65px; bottom: 150px; right: 110px; border-color: rgba(52,152,219,0.6); }
+        #btn-hide { width: 60px; height: 60px; bottom: 130px; right: 20px; border-color: rgba(155,89,182,0.6); }
+
+        .btn-icon { font-size: 28px; margin-bottom: -5px; pointer-events: none; filter: drop-shadow(0 2px 2px #000); }
+        #btn-attack .btn-icon { font-size: 40px; }
+        .key-hint { font-size: 10px; color: rgba(255,255,255,0.6); font-family: sans-serif; pointer-events: none; }
+
+        .cooldown-overlay {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 0%;
+            background: rgba(0,0,0,0.7);
+            transition: height 0.1s linear;
+            pointer-events: none;
+        }
+
+        /* SCREENS */
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 20, 15, 0.95);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: #fff; z-index: 20; pointer-events: auto; transition: opacity 0.5s;
+        }
+        .screen h1 {
+            font-family: 'Shojumaru', cursive; font-size: 50px; margin: 0 0 10px 0;
+            color: #e74c3c; text-shadow: 0 4px 10px rgba(0,0,0,0.8);
+            text-align: center;
+        }
+        .screen p { font-size: 16px; color: #a8e6cf; margin-bottom: 30px; font-style: italic; text-align: center; max-width: 600px; }
+        
+        .menu-btn {
+            padding: 12px 40px; font-size: 20px; font-family: 'Cinzel', serif; font-weight: 700;
+            color: #fff; background: transparent; border: 2px solid #e74c3c;
+            cursor: pointer; transition: 0.3s; margin: 10px; text-transform: uppercase;
+            position: relative; overflow: hidden;
+        }
+        .menu-btn:hover { background: #e74c3c; color: #000; box-shadow: 0 0 20px #e74c3c; }
+
+        .hidden { display: none !important; }
+        #level-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+        .lvl-btn {
+            width: 50px; height: 50px; border: 1px solid #555; background: rgba(0,0,0,0.5);
+            color: #fff; font-family: 'Shojumaru'; cursor: pointer;
+        }
+        .lvl-btn:hover { border-color: #e74c3c; background: #e74c3c; }
+
+        #weapon-indicator {
+            position: absolute; top: 70px; left: 20px;
+            color: rgba(255,255,255,0.7); font-size: 12px;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        
+        #checkpoint-msg {
+            position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%);
+            color: #f1c40f; font-family: 'Cinzel'; font-size: 24px; text-shadow: 0 2px 4px #000;
+            opacity: 0; transition: opacity 0.5s; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui-layer">
+        <div id="hud" class="hidden">
+            <div class="hud-left">
+                <div class="life-bar-wrap"><div id="life-fill"></div></div>
+                <div class="currency-wrap">
+                    <div class="currency-item"><span style="color: gold">●</span> <span id="coin-count">0</span></div>
+                    <div class="currency-item"><span style="color: cyan">♦</span> <span id="gem-count">0</span></div>
+                </div>
+                <div id="weapon-indicator">Sword</div>
+            </div>
+            <div id="score-display">Stage 1</div>
+        </div>
+        
+        <div id="checkpoint-msg">CHECKPOINT REACHED</div>
+
+        <div id="controls" class="hidden">
+            <div class="move-cluster">
+                <div class="arrow-btn" id="btn-left"><span class="arrow-icon">←</span><span class="key-hint">A</span></div>
+                <div class="arrow-btn" id="btn-right"><span class="arrow-icon">→</span><span class="key-hint">D</span></div>
+            </div>
+            <div class="action-cluster">
+                <div class="circle-btn" id="btn-attack">
+                    <span class="btn-icon">⚔️</span><span class="key-hint">Z</span>
+                    <div class="cooldown-overlay" id="cd-attack"></div>
+                </div>
+                <div class="circle-btn" id="btn-jump">
+                    <span class="btn-icon">▲</span><span class="key-hint">SPC</span>
+                </div>
+                <div class="circle-btn" id="btn-dash">
+                    <span class="btn-icon">💨</span><span class="key-hint">X</span>
+                    <div class="cooldown-overlay" id="cd-dash"></div>
+                </div>
+                <div class="circle-btn" id="btn-hide">
+                    <span class="btn-icon">🪵</span><span class="key-hint">C</span>
+                    <div class="cooldown-overlay" id="cd-hide"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- START SCREEN -->
+    <div id="start-screen" class="screen">
+        <h1>Ninja Shadow</h1>
+        <p>Arashi Legacy</p>
+        <div style="margin-bottom:20px; font-size: 14px; color: #888;">
+            PC: Arrows/WASD to Move • Space to Jump • Z Attack • X Dash • C Disguise<br>
+            Double Jump & Wall Climb Enabled
+        </div>
+        <button class="menu-btn" onclick="if(window.game) window.game.startLevel(1)">Start Game</button>
+        <button class="menu-btn" onclick="if(window.game) window.game.showLevelSelect()">Levels</button>
+    </div>
+
+    <!-- LEVEL SELECT -->
+    <div id="level-select-screen" class="screen hidden">
+        <h1>Select Stage</h1>
+        <div id="level-grid"></div>
+        <button class="menu-btn" onclick="if(window.game) window.game.showMenu()">Back</button>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="game-over-screen" class="screen hidden">
+        <h1 style="color: #c0392b;">Defeated</h1>
+        <p>The shadows have claimed you.</p>
+        <button class="menu-btn" onclick="if(window.game) window.game.respawn()">Last Checkpoint</button>
+        <button class="menu-btn" onclick="if(window.game) window.game.restartLevel()">Restart Level</button>
+        <button class="menu-btn" onclick="if(window.game) window.game.showMenu()">Menu</button>
+    </div>
+
+    <!-- LEVEL COMPLETE -->
+    <div id="level-screen" class="screen hidden">
+        <h1 style="color: #f1c40f;">Stage Clear</h1>
+        <p>The path opens.</p>
+        <button class="menu-btn" onclick="if(window.game) window.game.nextLevel()">Next Stage</button>
+    </div>
+
+    <!-- WIN SCREEN -->
+    <div id="win-screen" class="screen hidden">
+        <h1 style="color: #3498db;">Master Ninja</h1>
+        <p>You have restored peace to the land.</p>
+        <button class="menu-btn" onclick="if(window.game) window.game.showMenu()">Return</button>
+    </div>
+</div>
+
+<script>
+/**
+ * NINJA SHADOW: ARASHI LEGACY - MASTER EDITION ENGINE
+ * Features: Wall Jump, Slide, Traps, Breakables, Checkpoints, Chunk Generation
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let width, height;
+
+// --- CONSTANTS ---
+const GRAVITY = 0.8;
+const FRICTION = 0.82; 
+const MOVE_SPEED = 7; 
+const JUMP_FORCE = 16;
+const WALL_SLIDE_SPEED = 2;
+const WALL_JUMP_FORCE = { x: 12, y: 16 }; // Increased X force slightly for better feel
+const DASH_SPEED = 25; 
+const DASH_DURATION = 10; 
+const HIDE_DURATION = 180;
+const COOLDOWN_DASH = 60; 
+const COOLDOWN_HIDE = 300;
+const COOLDOWN_ATTACK = 20;
+
+// --- INPUTS ---
+const keys = { left: false, right: false, up: false, down: false, attack: false, dash: false, hide: false };
+
+const setupInputs = () => {
+    window.addEventListener('keydown', e => {
+        if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+        if(e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+        if(e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+        if(e.code === 'ArrowUp' || e.code === 'Space') keys.up = true;
+        if(e.code === 'KeyZ' || e.code === 'KeyJ') keys.attack = true;
+        if(e.code === 'KeyX' || e.code === 'KeyK') keys.dash = true;
+        if(e.code === 'KeyC' || e.code === 'KeyL') keys.hide = true;
+    });
+    window.addEventListener('keyup', e => {
+        if(e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+        if(e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+        if(e.code === 'ArrowUp' || e.code === 'Space') keys.up = false;
+        if(e.code === 'KeyZ' || e.code === 'KeyJ') keys.attack = false;
+        if(e.code === 'KeyX' || e.code === 'KeyK') keys.dash = false;
+        if(e.code === 'KeyC' || e.code === 'KeyL') keys.hide = false;
+    });
+    const bindTouch = (id, key) => {
+        const el = document.getElementById(id);
+        if(el) {
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key]=true; el.style.transform="scale(0.9)"; }, {passive:false});
+            el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key]=false; el.style.transform="scale(1)"; }, {passive:false});
+        }
+    };
+    bindTouch('btn-left','left'); bindTouch('btn-right','right'); bindTouch('btn-jump','up');
+    bindTouch('btn-attack','attack'); bindTouch('btn-dash','dash'); bindTouch('btn-hide','hide');
+};
+
+// --- CLASSES ---
+
+class Camera {
+    constructor() { this.x = 0; this.y = 0; this.shake = 0; }
+    follow(target) {
+        let tx = target.x - width / 3; 
+        let ty = target.y - height / 1.8; 
+        this.x += (tx - this.x) * 0.1;
+        this.y += (ty - this.y) * 0.1;
+        if(this.shake > 0) {
+            this.x += (Math.random()-0.5)*this.shake;
+            this.y += (Math.random()-0.5)*this.shake;
+            this.shake *= 0.9;
+            if(this.shake < 0.5) this.shake = 0;
+        }
+    }
+    triggerShake(amount) { this.shake = amount; }
+}
+
+class Particle {
+    constructor(x, y, color, speed, life, type='dust') {
+        this.x=x; this.y=y; this.color=color; this.life=life; this.maxLife=life; this.type=type;
+        this.vx = (Math.random()-0.5)*speed;
+        this.vy = (Math.random()-0.5)*speed;
+        this.size = Math.random()*4+2;
+        if(type==='debris') this.vy = -Math.random()*5; // Pop up
+    }
+    update() {
+        this.x+=this.vx; this.y+=this.vy;
+        if(this.type==='debris' || this.type==='blood') this.vy += 0.2; // Gravity
+        this.life--; this.size*=0.95;
+    }
+    draw(ctx, cx, cy) {
+        ctx.fillStyle=this.color;
+        ctx.globalAlpha = Math.max(0, this.life/this.maxLife);
+        ctx.fillRect(this.x-cx, this.y-cy, this.size, this.size);
+        ctx.globalAlpha=1;
+    }
+}
+
+class Entity {
+    constructor(x, y, w, h) {
+        this.x=x; this.y=y; this.w=w; this.h=h;
+        this.vx=0; this.vy=0;
+        this.grounded=false; this.onWall=false; this.wallDir=0;
+        this.facing=1; this.health=100; this.maxHealth=100;
+        this.dead=false;
+    }
+    
+    checkRect(x, y, w, h, r) {
+        return (x < r.x + r.w && x + w > r.x && y < r.y + r.h && y + h > r.y);
+    }
+}
+
+class Player extends Entity {
+    constructor(x, y) {
+        super(x, y, 30, 60);
+        this.color = '#000';
+        // Abilities
+        this.dashTimer=0; this.dashCooldown=0;
+        this.hideTimer=0; this.hideCooldown=0; this.isHidden=false;
+        this.attackCooldown=0; this.attackFrame=0;
+        // Movement
+        this.jumpCount=0; this.maxJumps=2; this.jumpKeyReleased=true;
+        this.wallJumpLock=0; // Added Control Lock
+        this.scarfPoints=[]; for(let i=0; i<8; i++) this.scarfPoints.push({x,y});
+    }
+
+    update(platforms, enemies, traps) {
+        // Cooldowns
+        if(this.dashCooldown>0) this.dashCooldown--;
+        if(this.hideCooldown>0) this.hideCooldown--;
+        if(this.attackCooldown>0) this.attackCooldown--;
+        if(this.attackFrame>0) this.attackFrame--;
+        if(this.wallJumpLock>0) this.wallJumpLock--; // Decrease lock timer
+        
+        // --- HIDE ABILITY ---
+        if(this.hideTimer>0) {
+            this.hideTimer--; this.isHidden=true;
+            if(this.hideTimer<=0) { this.isHidden=false; this.hideCooldown=COOLDOWN_HIDE; }
+        }
+
+        // --- DASH ABILITY ---
+        if(this.dashTimer>0) {
+            this.dashTimer--; 
+            this.vx = this.facing * DASH_SPEED; 
+            this.vy = 0; // Defy gravity
+            
+            // Effect
+            game.particles.push(new Particle(this.x+15, this.y+30, '#fff', 1, 5));
+            
+            // Dash Kill
+            enemies.forEach(e => {
+                if(!e.dead && this.checkRect(this.x, this.y, this.w, this.h, e)) {
+                    e.takeDamage(999); 
+                    game.camera.triggerShake(8);
+                }
+            });
+        } else {
+            // --- NORMAL MOVEMENT ---
+            // Only apply horizontal input if not locked by a wall jump
+            if (this.wallJumpLock <= 0) {
+                if(keys.left) { this.vx = -MOVE_SPEED; this.facing = -1; }
+                else if(keys.right) { this.vx = MOVE_SPEED; this.facing = 1; }
+                else { this.vx *= FRICTION; }
+            }
+            
+            // --- WALL MECHANICS ---
+            // Must be: In air, touching wall, pressing TOWARDS wall, and not locked
+            let movingTowardsWall = (keys.left && this.wallDir===-1) || (keys.right && this.wallDir===1);
+            
+            if(!this.grounded && this.onWall && movingTowardsWall && this.wallJumpLock <= 0) {
+                // Wall Slide
+                if(this.vy > 0) this.vy = WALL_SLIDE_SPEED; // Slow fall
+                this.jumpCount = 0; // Reset jumps allow wall jump
+                
+                // Wall Jump
+                if(keys.up && this.jumpKeyReleased) {
+                    this.vy = -WALL_JUMP_FORCE.y;
+                    this.vx = -this.wallDir * WALL_JUMP_FORCE.x; // Kick away from wall
+                    this.wallJumpLock = 12; // Lock controls for ~0.2s to prevent climbing same wall
+                    this.jumpKeyReleased = false;
+                    this.facing = -this.wallDir; // Turn player
+                    
+                    // Particles
+                    for(let i=0;i<5;i++) game.particles.push(new Particle(this.x+(this.wallDir===1?30:0), this.y+30, '#ddd', 2, 10));
+                }
+            } else {
+                // Normal Jump / Double Jump
+                if(!keys.up) this.jumpKeyReleased=true;
+                if(keys.up && this.jumpKeyReleased) {
+                    if(this.grounded || (this.jumpCount < this.maxJumps && this.wallJumpLock <= 0)) {
+                        this.vy = -JUMP_FORCE; 
+                        this.jumpCount++; 
+                        this.jumpKeyReleased=false;
+                        for(let i=0; i<5; i++) game.particles.push(new Particle(this.x+15, this.y+60, '#eee', 2, 10));
+                    }
+                }
+            }
+
+            // Input Abilities
+            if(keys.dash && this.dashCooldown<=0) {
+                this.dashTimer = DASH_DURATION; this.dashCooldown = COOLDOWN_DASH;
+                game.camera.triggerShake(5);
+                game.particles.push(new Particle(this.x, this.y+30, '#fff', 5, 20, 'dust'));
+            }
+            if(keys.hide && this.hideCooldown<=0 && !this.isHidden) {
+                this.hideTimer = HIDE_DURATION;
+                for(let i=0;i<10;i++) game.particles.push(new Particle(this.x+15, this.y+30, '#8b5a2b', 3, 30)); // Wood chips
+            }
+            if(keys.attack && this.attackCooldown<=0 && !this.isHidden) {
+                this.performContextAttack(enemies);
+            }
+        }
+        
+        // Physics
+        this.updatePhysics(platforms);
+        
+        // Traps Collision
+        traps.forEach(t => {
+            if(this.checkRect(this.x+5, this.y+5, this.w-10, this.h-10, t)) {
+                this.takeDamage(100); // Instant death
+            }
+        });
+
+        // Void Death
+        if(this.y > 3000) this.takeDamage(100);
+        
+        // Scarf Logic
+        this.scarfPoints.unshift({x:this.x+15, y:this.y+10});
+        if(this.scarfPoints.length>8) this.scarfPoints.pop();
+    }
+    
+    updatePhysics(platforms) {
+        this.vy += GRAVITY;
+        this.x += this.vx;
+        
+        this.onWall = false;
+        
+        // Horz
+        for (let p of platforms) {
+            if (this.checkRect(this.x, this.y, this.w, this.h, p)) {
+                if (this.vx > 0) { this.x = p.x - this.w; this.onWall=true; this.wallDir=1; }
+                else if (this.vx < 0) { this.x = p.x + p.w; this.onWall=true; this.wallDir=-1; }
+                this.vx = 0;
+            }
+        }
+        
+        this.y += this.vy;
+        this.grounded = false;
+        
+        // Vert
+        for (let p of platforms) {
+            if (this.checkRect(this.x, this.y, this.w, this.h, p)) {
+                if (this.vy > 0) { 
+                    this.y = p.y - this.h; 
+                    this.grounded = true; 
+                    this.jumpCount=0; 
+                    this.vy = 0; 
+                }
+                else if (this.vy < 0) { this.y = p.y + p.h; this.vy = 0; }
+            }
+        }
+    }
+    
+    performContextAttack(enemies) {
+        this.attackCooldown = COOLDOWN_ATTACK; this.attackFrame = 15;
+        let target = null;
+        
+        // Smart Targeting: Find closest enemy in facing direction
+        let minDist = 200;
+        for(let e of enemies) {
+            if(e.dead) continue;
+            let dx = e.x - this.x;
+            // Check if in front OR very close behind
+            if((Math.sign(dx)===this.facing || Math.abs(dx)<40) && Math.abs(dx) < minDist && Math.abs(e.y-this.y)<100) {
+                minDist = Math.abs(dx);
+                target = e;
+            }
+        }
+        
+        const uiText = document.getElementById('weapon-indicator');
+        
+        if(target && minDist < 120) {
+            // Melee
+            game.camera.triggerShake(4);
+            game.particles.push(new Particle(this.x+(this.facing*40), this.y+20, '#fff', 1, 5)); // Slash
+            target.takeDamage(50);
+            uiText.innerText = "Sword";
+        } else {
+            // Ranged
+            game.projectiles.push(new Projectile(this.x+15, this.y+20, this.facing));
+            uiText.innerText = "Shuriken";
+        }
+        uiText.style.opacity=1; setTimeout(()=>uiText.style.opacity=0, 800);
+    }
+    
+    takeDamage(amt) {
+        if(this.dashTimer>0) return; // Invincible
+        this.health -= amt;
+        game.camera.triggerShake(10);
+        if(this.health<=0) { this.dead=true; game.gameOver(); }
+    }
+    
+    draw(ctx, cx, cy) {
+        let sx = this.x - cx; let sy = this.y - cy;
+        
+        // Disguise Mode
+        if(this.isHidden) {
+            ctx.fillStyle = '#5d4037';
+            ctx.fillRect(sx, sy+20, this.w, 40); // Log shape
+            ctx.fillStyle = '#3e2723';
+            ctx.beginPath(); ctx.arc(sx+5, sy+30, 5, 0, Math.PI*2); ctx.fill(); // Knot
+            return;
+        }
+
+        // Scarf
+        ctx.beginPath();
+        if(this.scarfPoints.length>0) {
+            ctx.moveTo(this.scarfPoints[0].x-cx, this.scarfPoints[0].y-cy);
+            for(let i=1; i<this.scarfPoints.length; i++) {
+                let p = this.scarfPoints[i];
+                let wave = Math.sin(Date.now()/100 + i)*5;
+                ctx.lineTo(p.x-cx-(i*4)*this.facing, p.y-cy+wave);
+            }
+        }
+        ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.stroke();
+        
+        // Ninja Silhouette
+        ctx.fillStyle = '#000';
+        
+        // Head & Hat
+        ctx.beginPath(); ctx.arc(sx+15, sy+10, 10, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(sx-5, sy+10); ctx.lineTo(sx+35, sy+10); ctx.lineTo(sx+15, sy-8); ctx.fill();
+        
+        // Body
+        ctx.fillRect(sx+5, sy+20, 20, 25);
+        
+        // Animation (Running)
+        if(Math.abs(this.vx)>0.5 && this.grounded) {
+            let s = Math.sin(Date.now()/50)*8;
+            ctx.strokeStyle='#000'; ctx.lineWidth=6;
+            ctx.beginPath(); ctx.moveTo(sx+15, sy+45); ctx.lineTo(sx+10-s, sy+60); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(sx+15, sy+45); ctx.lineTo(sx+20+s, sy+60); ctx.stroke();
+        } else if (this.onWall && !this.grounded) {
+            // Wall Cling Pose
+            ctx.fillRect(sx+5, sy+45, 10, 10); // Leg tucked
+        } else {
+            // Idle/Jump
+            ctx.fillRect(sx+8, sy+45, 6, 15); ctx.fillRect(sx+16, sy+45, 6, 15);
+        }
+        
+        // Eyes
+        ctx.fillStyle = '#fff';
+        let eyeX = this.facing===1 ? sx+18 : sx+8;
+        ctx.fillRect(eyeX, sy+12, 5, 2);
+        
+        // Attack Flash
+        if(this.attackFrame>0) {
+            ctx.strokeStyle = `rgba(255,255,255,${this.attackFrame/15})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(sx+15, sy+30, 50, this.facing==1?-1:2, this.facing==1?1:4); ctx.stroke();
+        }
+    }
+}
+
+class Enemy extends Entity {
+    constructor(x, y, range) {
+        super(x, y, 30, 60);
+        this.startX = x; this.range = range;
+        this.speed = 2; this.health = 50; this.attackCooldown = 0;
+    }
+    
+    update(platforms, player) {
+        if(this.dead) return;
+        
+        const dist = Math.abs((player.x+15) - (this.x+15));
+        const dy = Math.abs(player.y - this.y);
+        const canSee = !player.isHidden && dist < 400 && dy < 100 && (Math.sign(player.x-this.x) === this.facing || dist < 50);
+        
+        let targetVx = 0;
+        
+        if(canSee) {
+            this.facing = player.x > this.x ? 1 : -1;
+            if(dist > 40) targetVx = this.facing * 3.5;
+            else if(this.attackCooldown<=0) {
+                this.attackCooldown=60;
+                player.takeDamage(20);
+                game.particles.push(new Particle(player.x+15, player.y+30, '#f00', 2, 10, 'blood'));
+            }
+        } else {
+            // Patrol
+            if(this.x > this.startX + this.range) this.facing = -1;
+            else if(this.x < this.startX - this.range) this.facing = 1;
+            targetVx = this.facing * this.speed;
+        }
+        
+        // Edge Detection
+        if(this.grounded) {
+            let nextX = this.x + (this.w/2) + (targetVx*10); // Look ahead
+            let nextY = this.y + this.h + 10;
+            let groundAhead = false;
+            for(let p of platforms) {
+                if(nextX >= p.x && nextX <= p.x + p.w && nextY >= p.y && nextY <= p.y + p.h + 20) {
+                    groundAhead = true; break;
+                }
+            }
+            if(!groundAhead) {
+                targetVx = 0;
+                if(!canSee) this.facing *= -1;
+            }
+        }
+        
+        this.vx = targetVx;
+        if(this.attackCooldown>0) this.attackCooldown--;
+        
+        // Physics update (copy logic from Entity/Player or simplified)
+        this.vy += GRAVITY;
+        this.x += this.vx;
+        for (let p of platforms) { if(this.checkRect(this.x, this.y, this.w, this.h, p)) { if(this.vx>0) this.x=p.x-this.w; else this.x=p.x+p.w; this.vx=0; } }
+        this.y += this.vy; this.grounded=false;
+        for (let p of platforms) { if(this.checkRect(this.x, this.y, this.w, this.h, p)) { if(this.vy>0) {this.y=p.y-this.h; this.grounded=true; this.vy=0;} else {this.y=p.y+p.h; this.vy=0;} } }
+        
+        if(this.y > 3000) this.dead=true;
+    }
+    
+    takeDamage(amt) {
+        this.health-=amt;
+        if(this.health<=0) {
+            this.dead=true;
+            for(let i=0;i<15;i++) game.particles.push(new Particle(this.x+15, this.y+30, '#c0392b', 4, 30, 'blood'));
+        }
+    }
+    
+    draw(ctx, cx, cy) {
+        if(this.dead) return;
+        let sx=this.x-cx; let sy=this.y-cy;
+        ctx.fillStyle='#111';
+        ctx.fillRect(sx, sy+10, this.w, this.h-10);
+        
+        // Spear/Weapon
+        ctx.strokeStyle='#aaa'; ctx.lineWidth=2;
+        ctx.beginPath(); 
+        ctx.moveTo(sx+(this.facing===1?20:10), sy+30); 
+        ctx.lineTo(sx+(this.facing===1?50:-20), sy+40); 
+        ctx.stroke();
+        
+        // Helmet
+        ctx.fillStyle='#222';
+        ctx.beginPath(); ctx.moveTo(sx-5, sy+10); ctx.lineTo(sx+35, sy+10); ctx.lineTo(sx+15, sy-5); ctx.fill();
+        
+        // Eye
+        ctx.fillStyle = this.alerted ? '#ff0000' : '#f1c40f';
+        let ex = this.facing===1 ? sx+20 : sx+5;
+        ctx.fillRect(ex, sy+15, 6, 2);
+    }
+}
+
+class Projectile {
+    constructor(x, y, dir) { this.x=x; this.y=y; this.vx=dir*22; this.life=50; this.active=true; }
+    update() { this.x+=this.vx; this.life--; if(this.life<=0) this.active=false; }
+    draw(ctx, cx, cy) {
+        ctx.save(); ctx.translate(this.x-cx, this.y-cy); ctx.rotate(Date.now()/40);
+        ctx.fillStyle='#3498db';
+        ctx.beginPath(); ctx.moveTo(-5,-5); ctx.lineTo(5,0); ctx.lineTo(-5,5); ctx.fill();
+        ctx.restore();
+    }
+}
+
+class Collectible {
+    constructor(x, y, type) {
+        this.x=x; this.y=y; this.type=type; // 'coin', 'gem', 'orb'
+        this.active=true;
+        this.floatY = 0;
+    }
+    update() {
+        this.floatY = Math.sin(Date.now()/200)*5;
+    }
+    draw(ctx, cx, cy) {
+        if(!this.active) return;
+        let sx = this.x - cx; let sy = this.y - cy + this.floatY;
+        
+        if(this.type === 'coin') {
+            ctx.fillStyle = '#f1c40f';
+            ctx.beginPath(); ctx.arc(sx, sy, 8, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#f39c12'; ctx.font='10px sans-serif'; ctx.fillText('$', sx-3, sy+3);
+        } else if (this.type === 'gem') {
+            ctx.fillStyle = '#00bcd4';
+            ctx.beginPath(); ctx.moveTo(sx, sy-10); ctx.lineTo(sx+8, sy); ctx.lineTo(sx, sy+10); ctx.lineTo(sx-8, sy); ctx.fill();
+        } else if (this.type === 'orb') {
+            ctx.fillStyle = '#2ecc71';
+            ctx.shadowBlur = 10; ctx.shadowColor = '#2ecc71';
+            ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+    }
+}
+
+class Breakable {
+    constructor(x, y) {
+        this.x=x; this.y=y; this.w=30; this.h=40; this.active=true;
+    }
+    break() {
+        if(!this.active) return;
+        this.active = false;
+        // Particles
+        for(let i=0; i<8; i++) game.particles.push(new Particle(this.x+15, this.y+20, '#8d6e63', 3, 20, 'debris'));
+        // Drop Coin
+        game.collectibles.push(new Collectible(this.x+15, this.y+20, 'coin'));
+    }
+    draw(ctx, cx, cy) {
+        if(!this.active) return;
+        let sx = this.x-cx; let sy = this.y-cy;
+        ctx.fillStyle = '#5d4037';
+        ctx.beginPath(); ctx.arc(sx+15, sy+30, 15, 0, Math.PI*2); ctx.fill(); // Base
+        ctx.fillRect(sx+10, sy, 10, 15); // Neck
+        ctx.fillRect(sx+5, sy-5, 20, 5); // Rim
+    }
+}
+
+// --- LEVEL GENERATION (CHUNK SYSTEM) ---
+const CHUNK_SIZE = 800;
+
+function createChunk(type, startX, startY) {
+    const plats = []; const enemies = []; const traps = []; const items = []; const breakables = [];
+    
+    if (type === 'start') {
+        plats.push({x: startX, y: startY, w: CHUNK_SIZE, h: 400});
+        // Tutorial prompts could go here
+    } else if (type === 'flat_enemies') {
+        plats.push({x: startX, y: startY, w: CHUNK_SIZE, h: 400});
+        enemies.push(new Enemy(startX + 400, startY-60, 200));
+        breakables.push(new Breakable(startX + 600, startY-40));
+    } else if (type === 'spikes') {
+        plats.push({x: startX, y: startY, w: 200, h: 400});
+        plats.push({x: startX + 600, y: startY, w: 200, h: 400});
+        // Spikes in middle
+        traps.push({x: startX + 220, y: startY+200, w: 360, h: 50});
+        // Floating platforms to cross
+        plats.push({x: startX + 300, y: startY - 100, w: 100, h: 20});
+        items.push(new Collectible(startX + 350, startY - 150, 'coin'));
+    } else if (type === 'wall_climb') {
+        plats.push({x: startX, y: startY, w: 200, h: 400});
+        // Tall wall
+        plats.push({x: startX + 400, y: startY - 400, w: 50, h: 800});
+        items.push(new Collectible(startX + 300, startY - 200, 'gem'));
+    } else if (type === 'traps_bear') {
+        plats.push({x: startX, y: startY, w: CHUNK_SIZE, h: 400});
+        traps.push({x: startX + 300, y: startY-10, w: 40, h: 10}); // Bear trap
+        breakables.push(new Breakable(startX + 500, startY-40));
+    }
+    
+    return { plats, enemies, traps, items, breakables, endY: startY };
+}
+
+function generateLevel(idx) {
+    let currentX = -200;
+    let currentY = 600;
+    let allPlats = []; let allEnemies = []; let allTraps = []; let allItems = []; let allBreakables = [];
+    
+    const chunkTypes = ['flat_enemies', 'spikes', 'wall_climb', 'traps_bear'];
+    
+    // Start Chunk
+    let c = createChunk('start', currentX, currentY);
+    allPlats.push(...c.plats);
+    currentX += CHUNK_SIZE;
+    
+    // Procedural Chunks
+    for(let i=0; i<5 + idx; i++) {
+        let type = chunkTypes[Math.floor(Math.random() * chunkTypes.length)];
+        c = createChunk(type, currentX, currentY);
+        allPlats.push(...c.plats);
+        allEnemies.push(...c.enemies);
+        allTraps.push(...c.traps);
+        allItems.push(...c.items);
+        allBreakables.push(...c.breakables);
+        currentX += CHUNK_SIZE;
+        currentY = c.endY; // Adjust for verticality later
+    }
+    
+    // End Chunk
+    allPlats.push({x: currentX, y: currentY, w: 500, h: 400});
+    
+    return {
+        platforms: allPlats,
+        enemies: allEnemies,
+        traps: allTraps,
+        collectibles: allItems,
+        breakables: allBreakables,
+        goal: {x: currentX + 300, y: currentY - 80, w: 60, h: 80},
+        checkpoints: [{x: currentX - CHUNK_SIZE, y: currentY - 50}] // One mid-level checkpoint logic could be added
+    };
+}
+
+class Game {
+    constructor() {
+        this.levelIndex=1; this.running=false;
+        this.player=null; this.camera=new Camera();
+        this.platforms=[]; this.enemies=[]; this.particles=[]; this.projectiles=[];
+        this.collectibles=[]; this.breakables=[]; this.traps=[];
+        
+        this.coins = 0; this.gems = 0;
+        this.checkpoint = null;
+
+        // Background
+        this.bgLayers = [];
+        for(let l=0; l<3; l++) { // 3 Layers of bamboo
+            let arr = [];
+            for(let i=0; i<30; i++) {
+                arr.push({
+                    x: Math.random() * 4000,
+                    w: 10 + Math.random() * 30,
+                    h: 1000,
+                    speed: (l+1) * 0.2
+                });
+            }
+            this.bgLayers.push(arr);
+        }
+
+        setupInputs();
+        window.addEventListener('resize', ()=>this.resize()); this.resize();
+        this.createLevelGrid();
+        requestAnimationFrame(()=>this.loop());
+    }
+    
+    createLevelGrid() {
+        const g=document.getElementById('level-grid'); g.innerHTML='';
+        for(let i=1;i<=10;i++) {
+            const b=document.createElement('button'); b.className='lvl-btn'; b.innerText=i;
+            b.onclick=()=>this.startLevel(i); g.appendChild(b);
+        }
+    }
+    resize() { width=canvas.width=window.innerWidth; height=canvas.height=window.innerHeight; }
+    
+    startLevel(lvl) {
+        this.levelIndex=lvl;
+        const d = generateLevel(lvl);
+        this.platforms=d.platforms; this.enemies=d.enemies; this.traps=d.traps;
+        this.collectibles=d.collectibles; this.breakables=d.breakables; this.goal=d.goal;
+        
+        this.player = new Player(100, 400);
+        this.checkpoint = {x: 100, y: 400}; // Default start
+        this.projectiles=[]; this.particles=[]; this.camera.x=0;
+        this.running=true;
+        
+        document.querySelectorAll('.screen').forEach(e=>e.classList.add('hidden'));
+        document.getElementById('hud').classList.remove('hidden');
+        document.getElementById('controls').classList.remove('hidden');
+        document.getElementById('score-display').innerText=`Stage ${lvl}`;
+        this.updateHUD();
+    }
+    
+    respawn() {
+        this.player.health = 100;
+        this.player.dead = false;
+        this.player.x = this.checkpoint.x;
+        this.player.y = this.checkpoint.y;
+        this.player.vx = 0; this.player.vy = 0;
+        this.running = true;
+        document.getElementById('game-over-screen').classList.add('hidden');
+    }
+    
+    restartLevel() { this.startLevel(this.levelIndex); }
+    nextLevel() { if(this.levelIndex<10) this.startLevel(this.levelIndex+1); else document.getElementById('win-screen').classList.remove('hidden'); }
+    showMenu() { this.running=false; document.querySelectorAll('.screen').forEach(e=>e.classList.add('hidden')); document.getElementById('start-screen').classList.remove('hidden'); document.getElementById('hud').classList.add('hidden'); document.getElementById('controls').classList.add('hidden'); }
+    showLevelSelect() { document.getElementById('start-screen').classList.add('hidden'); document.getElementById('level-select-screen').classList.remove('hidden'); }
+    gameOver() { this.running=false; setTimeout(()=>document.getElementById('game-over-screen').classList.remove('hidden'), 1000); }
+    
+    update() {
+        if(!this.running) return;
+        this.player.update(this.platforms, this.enemies, this.traps);
+        this.camera.follow(this.player);
+        
+        // Collectibles
+        for(let i=this.collectibles.length-1; i>=0; i--) {
+            let c = this.collectibles[i];
+            c.update();
+            if(Math.hypot(this.player.x-c.x, this.player.y-c.y) < 40) {
+                if(c.type==='coin') this.coins++;
+                if(c.type==='gem') this.gems++;
+                if(c.type==='orb') this.player.health = Math.min(100, this.player.health+30);
+                this.collectibles.splice(i,1);
+                this.updateHUD();
+            }
+        }
+        
+        // Breakables
+        this.breakables.forEach(b => {
+            // Break on attack or dash
+            if(b.active && Math.abs(this.player.x - b.x) < 50 && Math.abs(this.player.y - b.y) < 50) {
+                if(keys.attack || this.player.dashTimer > 0) b.break();
+            }
+        });
+
+        // Goal
+        if(this.player.checkRect(this.player.x, this.player.y, this.player.w, this.player.h, this.goal)) {
+            this.running=false; document.getElementById('level-screen').classList.remove('hidden');
+        }
+        
+        // Checkpoints (Simple Logic for now, auto-update if passed specific x)
+        if(this.player.x > this.checkpoint.x + 1000) {
+            this.checkpoint = {x: this.player.x, y: this.player.y};
+            const msg = document.getElementById('checkpoint-msg');
+            msg.style.opacity = 1; setTimeout(()=>msg.style.opacity=0, 2000);
+        }
+        
+        // Entities
+        this.enemies.forEach(e=>e.update(this.platforms, this.player));
+        this.projectiles.forEach(p=>p.update());
+        
+        // Collision: Projectile -> Enemy
+        for(let i=this.projectiles.length-1; i>=0; i--) {
+            let p=this.projectiles[i];
+            if(!p.active) { this.projectiles.splice(i,1); continue; }
+            this.enemies.forEach(e=>{
+                if(!e.dead && Math.abs(p.x-e.x)<30 && Math.abs(p.y-e.y)<50) {
+                    e.takeDamage(40); p.active=false;
+                    this.particles.push(new Particle(p.x, p.y, '#fff', 3, 10));
+                }
+            });
+        }
+        
+        this.particles.forEach(p=>p.update());
+        this.particles = this.particles.filter(p=>p.life>0);
+        
+        this.updateHUD();
+    }
+    
+    updateHUD() {
+        document.getElementById('life-fill').style.width = `${Math.max(0, this.player.health)}%`;
+        document.getElementById('coin-count').innerText = this.coins;
+        document.getElementById('gem-count').innerText = this.gems;
+        
+        const setOL=(id,c,m)=>document.getElementById(id).style.height=`${(c/m)*100}%`;
+        setOL('cd-dash',this.player.dashCooldown,COOLDOWN_DASH);
+        setOL('cd-hide',this.player.hideCooldown,COOLDOWN_HIDE);
+        setOL('cd-attack',this.player.attackCooldown,COOLDOWN_ATTACK);
+    }
+    
+    draw() {
+        let grad = ctx.createLinearGradient(0, 0, 0, height);
+        grad.addColorStop(0, '#689f82'); // Vibrant Sage
+        grad.addColorStop(1, '#1b2621'); // Deep Forest
+        ctx.fillStyle = grad;
+        ctx.fillRect(0,0,width,height);
+        
+        // Sunbeams / Godrays
+        ctx.save();
+        ctx.translate(width/2, -100);
+        ctx.rotate(0.2);
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        for(let i=0; i<5; i++) {
+            ctx.fillRect(i*150, 0, 50, height*2);
+        }
+        ctx.restore();
+        
+        // Background Layers (Parallax)
+        this.bgLayers.forEach((layer, idx) => {
+            let color = idx === 0 ? '#4a6b5a' : (idx === 1 ? '#2d4f3e' : '#14291f');
+            layer.forEach(b => {
+                let px = (b.x - this.camera.x * b.speed);
+                if(px < -100) px += 4000;
+                // Bamboo Stalk
+                ctx.fillStyle = color;
+                ctx.fillRect(px, height - b.h, b.w, b.h);
+                // Joints
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                for(let j=0; j<b.h; j+=120) ctx.fillRect(px-2, height - b.h + j, b.w+4, 3);
+            });
+        });
+        
+        let cx = this.camera.x; let cy = this.camera.y;
+        
+        // World - Platforms (Silhouette Black)
+        ctx.fillStyle='#000';
+        this.platforms.forEach(p=>{
+            if(p.x-cx<width && p.x+p.w-cx>-100) {
+                ctx.fillRect(p.x-cx, p.y-cy, p.w, p.h);
+                // Grass Tufts
+                for(let g=0; g<p.w; g+=30) {
+                    ctx.beginPath(); ctx.moveTo(p.x-cx+g, p.y-cy); 
+                    ctx.lineTo(p.x-cx+g+5, p.y-cy-8); 
+                    ctx.lineTo(p.x-cx+g+10, p.y-cy); ctx.fill();
+                }
+            }
+        });
+        
+        // Traps
+        ctx.fillStyle='#333';
+        this.traps.forEach(t => {
+            // Spikes
+            for(let i=0; i<t.w; i+=20) {
+                ctx.beginPath(); ctx.moveTo(t.x-cx+i, t.y-cy+t.h);
+                ctx.lineTo(t.x-cx+i+10, t.y-cy);
+                ctx.lineTo(t.x-cx+i+20, t.y-cy+t.h);
+                ctx.fill();
+            }
+        });
+        
+        this.breakables.forEach(b => b.draw(ctx, cx, cy));
+        this.collectibles.forEach(c => c.draw(ctx, cx, cy));
+        
+        // Goal
+        if(this.goal) {
+            let gx=this.goal.x-cx; let gy=this.goal.y-cy;
+            ctx.fillStyle='#111';
+            ctx.fillRect(gx, gy, 10, 80); ctx.fillRect(gx+50, gy, 10, 80);
+            ctx.fillRect(gx-10, gy+20, 80, 5); ctx.fillRect(gx-10, gy+35, 80, 5);
+            // Glow
+            ctx.fillStyle = `rgba(241, 196, 15, ${0.3 + Math.sin(Date.now()/300)*0.2})`;
+            ctx.beginPath(); ctx.arc(gx+30, gy+50, 25, 0, Math.PI*2); ctx.fill();
+        }
+        
+        if(this.player) {
+            this.enemies.forEach(e=>e.draw(ctx, cx, cy));
+            this.player.draw(ctx, cx, cy);
+        }
+        this.projectiles.forEach(p=>p.draw(ctx, cx, cy));
+        this.particles.forEach(p=>p.draw(ctx, cx, cy));
+        
+        // Foreground Mist
+        let m = ctx.createLinearGradient(0, height-200, 0, height);
+        m.addColorStop(0, 'transparent'); m.addColorStop(1, 'rgba(100,150,120,0.3)');
+        ctx.fillStyle=m; ctx.fillRect(0,0,width,height);
+    }
+    
+    loop() { this.update(); this.draw(); requestAnimationFrame(()=>this.loop()); }
+}
+
+window.game = new Game();
+</script>
+</body>
+</html>
